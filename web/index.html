@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>connectpuct</title>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #050505; color: #f5f5f5; display: grid; place-items: center; min-height: 100vh; }
+    main { width: min(94vw, 720px); }
+    h1 { font-size: 32px; margin: 0 0 16px; }
+    #board { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; background: #0d47a1; padding: 12px; border-radius: 8px; }
+    button.cell { aspect-ratio: 1; border-radius: 50%; border: 0; background: #101010; cursor: pointer; }
+    button.cell.p1 { background: #ffd43b; }
+    button.cell.p2 { background: #ff5c5c; }
+    #status { min-height: 28px; margin: 14px 0; font-size: 18px; }
+    #reset { border: 0; background: #f5f5f5; color: #050505; padding: 10px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>connectpuct</h1>
+  <div id="board" aria-label="Connect Four board"></div>
+  <div id="status"></div>
+  <button id="reset">Reset</button>
+</main>
+<script>
+const rows = 6, cols = 7;
+let cells = Array(rows * cols).fill(0);
+let player = 1;
+const boardEl = document.getElementById('board');
+const statusEl = document.getElementById('status');
+function legalMoves() { return [...Array(cols).keys()].filter(c => cells[c] === 0); }
+function play(col, p) {
+  for (let r = rows - 1; r >= 0; r--) {
+    const idx = r * cols + col;
+    if (cells[idx] === 0) { cells[idx] = p; return; }
+  }
+}
+function winner() {
+  const dirs = [[1,0],[0,1],[1,1],[-1,1]];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const v = cells[r * cols + c]; if (!v) continue;
+    for (const [dr, dc] of dirs) {
+      let ok = true;
+      for (let k = 1; k < 4; k++) {
+        const rr = r + dr * k, cc = c + dc * k;
+        if (rr < 0 || rr >= rows || cc < 0 || cc >= cols || cells[rr * cols + cc] !== v) ok = false;
+      }
+      if (ok) return v;
+    }
+  }
+  return legalMoves().length ? 0 : 2;
+}
+function immediate(p) {
+  for (const c of legalMoves()) {
+    const old = cells.slice(); play(c, p); const w = winner(); cells = old;
+    if (w === p) return c;
+  }
+  return null;
+}
+function aiMove() {
+  const win = immediate(-1); if (win !== null) return win;
+  const block = immediate(1); if (block !== null) return block;
+  return legalMoves().sort((a, b) => Math.abs(3 - a) - Math.abs(3 - b))[0];
+}
+function render() {
+  boardEl.innerHTML = '';
+  for (let i = 0; i < cells.length; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'cell' + (cells[i] === 1 ? ' p1' : cells[i] === -1 ? ' p2' : '');
+    btn.onclick = () => human(Math.floor(i % cols));
+    boardEl.appendChild(btn);
+  }
+  const w = winner();
+  statusEl.textContent = w === 1 ? 'You win.' : w === -1 ? 'AI wins.' : w === 2 ? 'Draw.' : 'Your move.';
+}
+function human(col) {
+  if (player !== 1 || !legalMoves().includes(col) || winner()) return;
+  play(col, 1); player = -1; render();
+  if (!winner()) setTimeout(() => { play(aiMove(), -1); player = 1; render(); }, 180);
+}
+document.getElementById('reset').onclick = () => { cells = Array(rows * cols).fill(0); player = 1; render(); };
+render();
+</script>
+</body>
+</html>
