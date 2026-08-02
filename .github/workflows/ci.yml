@@ -28,3 +28,5 @@ jobs:
         run: python examples/quickstart.py
       - name: Run benchmark
         run: python -m connectpuct.benchmark
+      - name: Run fair-opponent comparison
+        run: python -m connectpuct.benchmark_v2
