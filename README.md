@@ -2,7 +2,6 @@
 
 A Connect Four AI that actually has to play the game, in a browser, against you, instead of just printing a win rate and hoping you believe it.
 
-![CI](https://github.com/ahmeddoghri/connectpuct/actions/workflows/ci.yml/badge.svg)
 ![python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![deps](https://img.shields.io/badge/runtime%20deps-none-success)
 ![license](https://img.shields.io/badge/license-MIT-black)
