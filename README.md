@@ -2,9 +2,13 @@
 
 A Connect Four AI that actually has to play the game, in a browser, against you, instead of just printing a win rate and hoping you believe it.
 
+[![tests](https://github.com/ahmeddoghri/connectpuct/actions/workflows/tests.yml/badge.svg)](https://github.com/ahmeddoghri/connectpuct/actions/workflows/tests.yml)
 ![python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![deps](https://img.shields.io/badge/runtime%20deps-none-success)
 ![license](https://img.shields.io/badge/license-MIT-black)
+[![case study](https://img.shields.io/badge/case%20study-adoghri.com-e0703e)](https://adoghri.com/project-25.html)
+
+![connectpuct](docs/cover.jpg)
 
 Every game AI repo has a benchmark table. Very few of them let you actually
 sit down and lose to the thing. connectpuct ships both: a PUCT-style Monte
