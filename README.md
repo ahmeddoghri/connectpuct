@@ -7,6 +7,7 @@ A Connect Four AI that actually has to play the game, in a browser, against you,
 ![deps](https://img.shields.io/badge/runtime%20deps-none-success)
 ![license](https://img.shields.io/badge/license-MIT-black)
 [![case study](https://img.shields.io/badge/case%20study-adoghri.com-e0703e)](https://adoghri.com/project-25.html)
+[![play it](https://img.shields.io/badge/play%20it-in%20your%20browser-1f4fa3)](https://ahmeddoghri.github.io/connectpuct/)
 
 ![connectpuct](docs/cover.jpg)
 
@@ -25,8 +26,25 @@ pip install -e ".[dev]"
 python -m connectpuct.benchmark
 ```
 
-Then open `web/index.html` to play it yourself. No server, no build step, no
-excuse not to.
+Then play it yourself at **[ahmeddoghri.github.io/connectpuct](https://ahmeddoghri.github.io/connectpuct/)**,
+or open `web/index.html` locally. No server, no build step, no excuse not to.
+
+### The browser game plays the real agent
+
+It didn't always. The first version of the page shipped a three-line stand-in
+(win if you can, block if you must, otherwise play center) that was weaker
+than either baseline in the benchmark, while this README said you could get
+humbled by the search agent. `web/puct.js` is now a line-for-line port of
+`engine.py` and `mcts.py`: the same priors, rollouts, and PUCT selection.
+Only the random number generator differs, since Python's can't be reproduced
+in JavaScript. The page shows where the search spent its visits on every
+move, and lets you raise the budget from the benchmarked 40 simulations to
+4,000.
+
+`node tests/web_parity.mjs` replays 200 random games through both engines and
+requires zero rule disagreements, then checks the 40-simulation JS agent
+still beats random and center play (20/20 and 19/20). CI runs it on every
+push, so the page can't silently drift back to a stand-in.
 
 ## Verified benchmark
 

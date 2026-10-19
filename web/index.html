@@ -4,83 +4,216 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>connectpuct</title>
+  <meta name="description" content="Play Connect Four against the same PUCT search agent the connectpuct benchmark measures, and watch where its search spent its visits.">
   <style>
-    body { margin: 0; font-family: system-ui, sans-serif; background: #050505; color: #f5f5f5; display: grid; place-items: center; min-height: 100vh; }
-    main { width: min(94vw, 720px); }
-    h1 { font-size: 32px; margin: 0 0 16px; }
-    #board { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; background: #0d47a1; padding: 12px; border-radius: 8px; }
-    button.cell { aspect-ratio: 1; border-radius: 50%; border: 0; background: #101010; cursor: pointer; }
-    button.cell.p1 { background: #ffd43b; }
-    button.cell.p2 { background: #ff5c5c; }
-    #status { min-height: 28px; margin: 14px 0; font-size: 18px; }
-    #reset { border: 0; background: #f5f5f5; color: #050505; padding: 10px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; }
+    :root {
+      --bg: #f4f1ea; --panel: #fffdf8; --ink: #1d1b16; --muted: #6b665c; --line: #ddd6c8;
+      --board: #1f4fa3; --hole: #f4f1ea; --you: #f2b705; --ai: #d6402b; --bar: #1f4fa3;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #111214; --panel: #1a1c1f; --ink: #ecebe7; --muted: #9a978f; --line: #2c2f33;
+        --board: #2457b3; --hole: #111214; --you: #f5c518; --ai: #ef5a43; --bar: #6f9bea;
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #111214; --panel: #1a1c1f; --ink: #ecebe7; --muted: #9a978f; --line: #2c2f33;
+      --board: #2457b3; --hole: #111214; --you: #f5c518; --ai: #ef5a43; --bar: #6f9bea;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 760px; margin: 0 auto; padding: 28px 16px 48px; }
+    header h1 { font-size: 28px; margin: 0; letter-spacing: -0.02em; }
+    header p { margin: 6px 0 20px; color: var(--muted); }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 14px; }
+    label { font-size: 14px; color: var(--muted); display: inline-flex; gap: 8px; align-items: center; }
+    select, button { font: inherit; font-size: 14px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+    button { cursor: pointer; font-weight: 600; }
+    button:focus-visible, select:focus-visible, .col:focus-visible { outline: 3px solid var(--you); outline-offset: 2px; }
+    .bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 0 10px; height: 54px; align-items: end; }
+    .bar { background: var(--bar); opacity: 0.85; border-radius: 4px 4px 0 0; min-height: 2px; position: relative; transition: height 200ms ease; }
+    .bar span { position: absolute; bottom: 100%; left: 0; right: 0; text-align: center; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .board { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; background: var(--board); padding: 10px; border-radius: 12px; }
+    .col { display: grid; grid-template-rows: repeat(6, 1fr); gap: 6px; background: none; border: 0; padding: 0; cursor: pointer; border-radius: 8px; }
+    .col:disabled { cursor: default; }
+    .col:not(:disabled):hover .cell:not(.p1):not(.p2) { background: color-mix(in srgb, var(--hole) 80%, var(--you)); }
+    .cell { aspect-ratio: 1; border-radius: 50%; background: var(--hole); transition: background 120ms ease; }
+    .cell.p1 { background: var(--you); }
+    .cell.p2 { background: var(--ai); }
+    .cell.last { box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--ink) 35%, transparent); }
+    .cell.win { box-shadow: inset 0 0 0 5px var(--ink); }
+    .status { min-height: 28px; margin: 14px 0 4px; font-size: 18px; font-weight: 600; }
+    .why { min-height: 22px; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+    .notes { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+    .notes a { color: inherit; }
+    @media (prefers-reduced-motion: reduce) { .bar, .cell { transition: none; } }
   </style>
 </head>
 <body>
 <main>
-  <h1>connectpuct</h1>
-  <div id="board" aria-label="Connect Four board"></div>
-  <div id="status"></div>
-  <button id="reset">Reset</button>
+  <header>
+    <h1>connectpuct</h1>
+    <p>Connect Four against the same PUCT search agent the benchmark measures. The bars show where its search spent its visits on the last move.</p>
+  </header>
+
+  <div class="controls">
+    <label>Search budget
+      <select id="sims">
+        <option value="40">40 simulations (the benchmarked agent)</option>
+        <option value="400" selected>400 simulations</option>
+        <option value="4000">4,000 simulations</option>
+      </select>
+    </label>
+    <label>First move
+      <select id="first">
+        <option value="you">You</option>
+        <option value="ai">The agent</option>
+      </select>
+    </label>
+    <button id="reset" type="button">New game</button>
+  </div>
+
+  <div class="bars" id="bars" aria-hidden="true"></div>
+  <div class="board" id="board" role="grid" aria-label="Connect Four board. Press 1 to 7 to drop a piece."></div>
+  <div class="status" id="status" aria-live="polite"></div>
+  <div class="why" id="why"></div>
+
+  <p class="notes">
+    The engine and search in <code>puct.js</code> are a line-for-line port of
+    <code>connectpuct/engine.py</code> and <code>connectpuct/mcts.py</code>: center-weighted priors,
+    immediate-win and block checks, tactical rollouts, PUCT selection with c = 1.4. Only the random
+    number generator differs, because Python's can't be reproduced in JavaScript. At 40 simulations it
+    beats random and center-first play; against depth-3 minimax the Python benchmark has it winning
+    11 of 20.
+    <a href="https://github.com/ahmeddoghri/connectpuct">Source and benchmarks</a> ·
+    <a href="https://adoghri.com/project-25.html">Case study</a>
+  </p>
 </main>
+
+<script src="puct.js"></script>
 <script>
-const rows = 6, cols = 7;
-let cells = Array(rows * cols).fill(0);
-let player = 1;
-const boardEl = document.getElementById('board');
-const statusEl = document.getElementById('status');
-function legalMoves() { return [...Array(cols).keys()].filter(c => cells[c] === 0); }
-function play(col, p) {
-  for (let r = rows - 1; r >= 0; r--) {
-    const idx = r * cols + col;
-    if (cells[idx] === 0) { cells[idx] = p; return; }
+(function () {
+  const { ROWS, COLS, emptyBoard, legalMoves, play, winner, winningLine, chooseMove } = window.PUCT;
+  const boardEl = document.getElementById("board");
+  const barsEl = document.getElementById("bars");
+  const statusEl = document.getElementById("status");
+  const whyEl = document.getElementById("why");
+  const simsEl = document.getElementById("sims");
+  const firstEl = document.getElementById("first");
+
+  let board, human, busy, last, moveNo;
+
+  const cols = [];
+  for (let c = 0; c < COLS; c++) {
+    const col = document.createElement("button");
+    col.className = "col";
+    col.type = "button";
+    col.setAttribute("aria-label", "Column " + (c + 1));
+    for (let r = 0; r < ROWS; r++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      col.appendChild(cell);
+    }
+    col.addEventListener("click", () => humanMove(c));
+    boardEl.appendChild(col);
+    cols.push(col);
+    const bar = document.createElement("div");
+    bar.className = "bar";
+    bar.appendChild(document.createElement("span"));
+    barsEl.appendChild(bar);
   }
-}
-function winner() {
-  const dirs = [[1,0],[0,1],[1,1],[-1,1]];
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-    const v = cells[r * cols + c]; if (!v) continue;
-    for (const [dr, dc] of dirs) {
-      let ok = true;
-      for (let k = 1; k < 4; k++) {
-        const rr = r + dr * k, cc = c + dc * k;
-        if (rr < 0 || rr >= rows || cc < 0 || cc >= cols || cells[rr * cols + cc] !== v) ok = false;
+
+  function render(line) {
+    for (let c = 0; c < COLS; c++) {
+      const cells = cols[c].children;
+      for (let r = 0; r < ROWS; r++) {
+        const idx = r * COLS + c;
+        const v = board.cells[idx];
+        const who = v === human ? "p1" : v === -human ? "p2" : "";
+        cells[r].className = "cell" + (who ? " " + who : "") + (idx === last ? " last" : "") + (line && line.includes(idx) ? " win" : "");
       }
-      if (ok) return v;
+      cols[c].disabled = busy || !!winner(board) || board.player !== human || board.cells[c] !== 0;
     }
   }
-  return legalMoves().length ? 0 : 2;
-}
-function immediate(p) {
-  for (const c of legalMoves()) {
-    const old = cells.slice(); play(c, p); const w = winner(); cells = old;
-    if (w === p) return c;
+
+  function showSearch(result) {
+    const bars = barsEl.children;
+    const total = result.visits ? result.visits.reduce((a, b) => a + b, 0) : 0;
+    for (let c = 0; c < COLS; c++) {
+      const n = result.visits ? result.visits[c] : (c === result.move ? 1 : 0);
+      const share = result.visits ? n / Math.max(1, total) : n;
+      bars[c].style.height = Math.max(2, Math.round(share * 54)) + "px";
+      bars[c].firstChild.textContent = result.visits ? (n ? n : "") : (c === result.move ? "!" : "");
+    }
+    if (result.reason === "win") whyEl.textContent = "It saw a win in one and took it. No search needed.";
+    else if (result.reason === "block") whyEl.textContent = "You threatened four in a row. It blocked without searching.";
+    else if (result.reason === "search") {
+      const pct = Math.round(((result.value + 1) / 2) * 100);
+      whyEl.textContent = "Column " + (result.move + 1) + " got " + result.visits[result.move] + " of " + total +
+        " visits. Its rollouts score that line at " + pct + "% for itself.";
+    } else whyEl.textContent = "";
   }
-  return null;
-}
-function aiMove() {
-  const win = immediate(-1); if (win !== null) return win;
-  const block = immediate(1); if (block !== null) return block;
-  return legalMoves().sort((a, b) => Math.abs(3 - a) - Math.abs(3 - b))[0];
-}
-function render() {
-  boardEl.innerHTML = '';
-  for (let i = 0; i < cells.length; i++) {
-    const btn = document.createElement('button');
-    btn.className = 'cell' + (cells[i] === 1 ? ' p1' : cells[i] === -1 ? ' p2' : '');
-    btn.onclick = () => human(Math.floor(i % cols));
-    boardEl.appendChild(btn);
+
+  function finish() {
+    const w = winner(board);
+    if (!w) return false;
+    busy = false;
+    render(winningLine(board));
+    statusEl.textContent = w === 2 ? "Draw. The board is full." : w === human ? "You win. Try a bigger search budget." : "The agent wins.";
+    return true;
   }
-  const w = winner();
-  statusEl.textContent = w === 1 ? 'You win.' : w === -1 ? 'AI wins.' : w === 2 ? 'Draw.' : 'Your move.';
-}
-function human(col) {
-  if (player !== 1 || !legalMoves().includes(col) || winner()) return;
-  play(col, 1); player = -1; render();
-  if (!winner()) setTimeout(() => { play(aiMove(), -1); player = 1; render(); }, 180);
-}
-document.getElementById('reset').onclick = () => { cells = Array(rows * cols).fill(0); player = 1; render(); };
-render();
+
+  function aiMove() {
+    busy = true;
+    statusEl.textContent = "Searching…";
+    render();
+    setTimeout(() => {
+      const result = chooseMove(board, { simulations: Number(simsEl.value), seed: moveNo * 7919 + 17 });
+      board = play(board, result.move);
+      last = lowestFilled(result.move);
+      moveNo++;
+      showSearch(result);
+      busy = false;
+      if (!finish()) {
+        statusEl.textContent = "Your move.";
+        render();
+      }
+    }, 30);
+  }
+
+  function lowestFilled(col) {
+    for (let r = 0; r < ROWS; r++) if (board.cells[r * COLS + col] !== 0) return r * COLS + col;
+    return -1;
+  }
+
+  function humanMove(col) {
+    if (busy || winner(board) || board.player !== human || !legalMoves(board).includes(col)) return;
+    board = play(board, col);
+    last = lowestFilled(col);
+    moveNo++;
+    if (!finish()) aiMove();
+  }
+
+  function reset() {
+    board = emptyBoard();
+    human = firstEl.value === "you" ? 1 : -1;
+    busy = false;
+    last = -1;
+    moveNo = 0;
+    whyEl.textContent = "";
+    for (const bar of barsEl.children) { bar.style.height = "2px"; bar.firstChild.textContent = ""; }
+    if (board.player === human) { statusEl.textContent = "Your move. Yellow drops first."; render(); }
+    else aiMove();
+  }
+
+  document.getElementById("reset").addEventListener("click", reset);
+  firstEl.addEventListener("change", reset);
+  document.addEventListener("keydown", (e) => {
+    const n = Number(e.key);
+    if (n >= 1 && n <= 7 && !e.metaKey && !e.ctrlKey) humanMove(n - 1);
+  });
+  reset();
+})();
 </script>
 </body>
 </html>
